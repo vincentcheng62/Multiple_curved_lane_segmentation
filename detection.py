@@ -407,20 +407,61 @@ for cnt in contours:
 cv.imwrite("filter_out_car_gray_blur_canny_contour_chosenbb_mergecrack_final.bmp", imgsamplehlpfinal)
 
 
-colors=[(255,0,0),(0,255,0),(0,0,255),(255,0,255),(128,0,0),(0,128,0),(0,0,128),(128,0,128),(128,128,0),(0,128,128)]
+colors=[(255,0,0),(0,255,0),(0,0,255),(255,0,255),(255,255,0),(0,255,255),(255,255,255),(0,0,0),(128,0,0),(0,128,0),(0,0,128),(128,0,128),(128,128,0),(0,128,128)]
 im1_new, contours_new, hierarchy_new = cv.findContours(imgBA,cv.RETR_TREE,cv.CHAIN_APPROX_SIMPLE)
 result = imgsample.copy()
 
-obj_id=0
+obj_id=0                                                                                                                                                                    
 for cnt in contours_new:
     rect = cv.minAreaRect(cnt)
     area = rect[1][0]*rect[1][1]
-    if area > 2000 and max(rect[1][0], rect[1][1])>500:
+    if area > 1200 and max(rect[1][0], rect[1][1])>350:
         color = colors[int(obj_id) % len(colors)]
         obj_id=obj_id+1
         cv.drawContours(result, [cnt], 0, color, -1) 
 
-cv.imwrite("filter_out_car_gray_blur_canny_contour_chosenbb_mergecrack_final_result.bmp", result)
+cv.imwrite("filter_out_car_gray_blur_canny_contour_chosenbb_mergecrack_final_result.jpg", result)
+
+
+obj_id=0
+extend_margin_y=200                                                                                                                                                                         
+for cnt in contours_new:
+    rect = cv.minAreaRect(cnt)
+    area = rect[1][0]*rect[1][1]
+    if area > 1200 and max(rect[1][0], rect[1][1])>350:
+        color = colors[int(obj_id) % len(colors)]
+        obj_id=obj_id+1
+        #cv.drawContours(result, [cnt], 0, color, -1) 
+
+        #print("cnt: ", cnt)
+
+        # Try polyfit to extend the lane segmentation result
+        # get x and y vectors
+        # domain knowledge, same y must have same x, but same x can have multiple y, so reverse the role of x and y
+        x = cnt.squeeze()[:,0]
+        y = cnt.squeeze()[:,1]                                                                                                                                       
+
+        # calculate polynomial
+        z = np.polyfit(y, x, 3)
+        f = np.poly1d(z)
+
+        # calculate new x's and y's
+        y_new = np.linspace(min(y)-extend_margin_y, max(y)+extend_margin_y, 500)
+        x_new = f(y_new)
+
+        #new_cnt=np.hstack((x_new,y_new))
+        new_cnt=[]
+        for qk in range(0, len(x_new)-1):
+            #new_cnt.append([[x_new[qk], y_new[qk]]])
+            cv.line(result, (int(x_new[qk]), int(y_new[qk])), (int(x_new[qk+1]), int(y_new[qk+1])), color, 7) 
+
+        #print("new_cnt: ", np.array(new_cnt))
+        #cv.drawContours(result, [np.array(new_cnt).astype(np.int32)], 0, color, 7) 
+
+cv.imwrite("filter_out_car_gray_blur_canny_contour_chosenbb_mergecrack_final_result_polyfit.jpg", result)
+
+
+
 # HoughThd=70
 
 # lines = cv.HoughLines(edges,1,4.0*np.pi/180,HoughThd)
